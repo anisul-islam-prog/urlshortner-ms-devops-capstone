@@ -1,0 +1,7 @@
+apiVersion: v2
+name: urlshortener
+description: Production-grade URL Shortener Microservices
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+dependencies: []  # Inline templates for simplicity

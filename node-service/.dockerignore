@@ -1,20 +1,2 @@
-# Database files
-*.db
-
-# Dependencies
 node_modules/
-
-# Git
-.git
-.gitignore
-
-# Logs
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# Editor files
-*.swp
-*.swo
-*~
-
+*.db

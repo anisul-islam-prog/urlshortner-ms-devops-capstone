@@ -1,0 +1,94 @@
+name: Local CI/CD - Build, Scan, Analyze, Deploy
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  build-scan-deploy:
+    runs-on: [self-hosted, m2, local]
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify Toolchain
+        run: |
+          minikube status
+          kubectl cluster-info
+          docker --version
+          helm version
+
+      - name: Build Images into Minikube
+        run: |
+          eval $(minikube docker-env)
+          docker build -t urlshortener-go:latest ./go-service
+          docker build -t urlshortener-python:latest ./python-service
+          docker build -t urlshortener-nodejs:latest ./node-service
+
+      - name: Trivy Vulnerability Scan
+        run: |
+          trivy image --severity HIGH,CRITICAL --exit-code 1 \
+            --format table urlshortener-go:latest
+          trivy image --severity HIGH,CRITICAL --exit-code 1 \
+            --format table urlshortener-python:latest
+          trivy image --severity HIGH,CRITICAL --exit-code 1 \
+            --format table urlshortener-nodejs:latest
+
+      - name: SonarQube Scan
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          sonar-scanner \
+            -Dsonar.projectKey=urlshortener-capstone \
+            -Dsonar.projectName="URL Shortener Capstone" \
+            -Dsonar.sources=go-service,python-service,node-service \
+            -Dsonar.exclusions=**/node_modules/**,**/venv/**,**/*.db,**/templates/** \
+            -Dsonar.host.url=http://localhost:9000 \
+            -Dsonar.login=$SONAR_TOKEN \
+            -Dsonar.qualitygate.wait=true
+
+      - name: Check SonarQube Quality Gate
+        if: always()
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          sleep 15
+          PROJECT_KEY="urlshortener-capstone"
+          QG_STATUS=$(curl -s -u "$SONAR_TOKEN:" \
+            "http://localhost:9000/api/qualitygates/project_status?projectKey=$PROJECT_KEY" \
+            | jq -r '.projectStatus.status')
+          echo "Quality Gate Status: $QG_STATUS"
+          if [ "$QG_STATUS" != "OK" ]; then
+            echo "::error::SonarQube Quality Gate failed!"
+            exit 1
+          fi
+
+      - name: Deploy to Minikube via Helm
+        run: |
+          helm upgrade --install urlshortener ./helm/urlshortener \
+            --namespace urlshortener \
+            --create-namespace \
+            --set global.imagePullPolicy=Never \
+            --wait --timeout 5m
+
+      - name: Verify Deployment
+        run: |
+          echo "=== Pods ==="
+          kubectl get pods -n urlshortener
+          echo "=== Services ==="
+          kubectl get svc -n urlshortener
+          echo "=== HPA ==="
+          kubectl get hpa -n urlshortener
+          echo "=== Ingress ==="
+          kubectl get ingress -n urlshortener
+
+      - name: Wait for Rollout
+        run: |
+          kubectl rollout status deployment/urlshortener-go -n urlshortener --timeout=120s
+          kubectl rollout status deployment/urlshortener-python -n urlshortener --timeout=120s
+          kubectl rollout status deployment/urlshortener-nodejs -n urlshortener --timeout=120s

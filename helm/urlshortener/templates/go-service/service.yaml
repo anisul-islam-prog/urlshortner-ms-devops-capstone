@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "urlshortener.fullname" . }}-go
+  labels:
+    app.kubernetes.io/component: go
+    {{- include "urlshortener.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.goService.service.type }}
+  ports:
+    - port: {{ .Values.goService.service.port }}
+      targetPort: 8000
+      protocol: TCP
+  selector:
+    app.kubernetes.io/component: go
+    {{- include "urlshortener.selectorLabels" . | nindent 4 }}

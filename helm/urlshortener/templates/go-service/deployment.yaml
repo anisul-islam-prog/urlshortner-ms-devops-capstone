@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "urlshortener.fullname" . }}-go
+  labels:
+    app.kubernetes.io/component: go
+    {{- include "urlshortener.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.goService.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: go
+      {{- include "urlshortener.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: go
+        {{- include "urlshortener.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: go
+          image: "{{ .Values.goService.image.repository }}:{{ .Values.goService.image.tag }}"
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          ports:
+            - containerPort: 8000
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: {{ include "urlshortener.fullname" . }}-config
+          resources:
+            {{- toYaml .Values.goService.resources | nindent 12 }}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 3
+            periodSeconds: 5

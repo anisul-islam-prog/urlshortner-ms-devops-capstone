@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -62,13 +63,21 @@ func initDB() {
 }
 
 func initRedis() {
-	redisURL := getEnv("REDIS_URL", "localhost:6380")
-	
-	rdb = redis.NewClient(&redis.Options{
-		Addr:     redisURL,
-		Password: "", // no password
-		DB:       0,  // default DB
+	// Replace your redis.NewClient call with this:
+	redisHost := getEnv("REDIS_HOST", "localhost")
+	redisPort := getEnv("REDIS_PORT", "6380")
+	redisURL := redisHost + ":" + redisPort
+
+	rdb := redis.NewClient(&redis.Options{
+		Addr: redisURL,
 	})
+	// redisURL := getEnv("REDIS_URL", "localhost:6380")
+
+	// rdb = redis.NewClient(&redis.Options{
+	// 	Addr:     redisURL,
+	// 	Password: "", // no password
+	// 	DB:       0,  // default DB
+	// })
 
 	// Test connection
 	_, err := rdb.Ping(ctx).Result()
@@ -124,10 +133,12 @@ func createShortURL(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create short URL"})
 		return
 	}
+	baseURL := getEnv("BASE_URL", "http://localhost:8000")
+	shortURL := fmt.Sprintf("%s/%s", baseURL, shortCode)
 
 	response := ShortenResponse{
 		ShortCode: shortCode,
-		ShortURL:  "http://localhost:8000/" + shortCode,
+		ShortURL:  shortURL,
 		LongURL:   req.LongURL,
 	}
 
@@ -138,7 +149,7 @@ func createShortURL(c *gin.Context) {
 func redirect(c *gin.Context) {
 	shortCode := c.Param("code")
 	var longURL string
-
+	log.Printf("Redirecting to short code: %s", shortCode)
 	// Try Redis cache first (if available)
 	if rdb != nil {
 		cachedURL, err := rdb.Get(ctx, "url:"+shortCode).Result()
@@ -242,6 +253,11 @@ func main() {
 
 	r := gin.Default()
 
+	// ─── Health endpoint for K8s probes ───
+	r.GET("/health", func(c *gin.Context) {
+		c.JSON(200, gin.H{"status": "ok"})
+	})
+
 	// CORS middleware
 	r.Use(func(c *gin.Context) {
 		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
@@ -258,8 +274,9 @@ func main() {
 
 	// Routes
 	r.POST("/api/shorten", createShortURL)
-	r.GET("/:code", redirect)
+	r.GET("/r/:code", redirect)
 
 	log.Println("Go service starting on :8000")
+	log.Printf("BASE_URL: %s", getEnv("BASE_URL", "http://localhost:8000"))
 	r.Run(":8000")
 }

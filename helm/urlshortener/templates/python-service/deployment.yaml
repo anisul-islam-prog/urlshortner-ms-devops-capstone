@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "urlshortener.fullname" . }}-python
+  labels:
+    app.kubernetes.io/component: python
+    {{- include "urlshortener.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.pythonService.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: python
+      {{- include "urlshortener.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: python
+        {{- include "urlshortener.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: python
+          image: "{{ .Values.pythonService.image.repository }}:{{ .Values.pythonService.image.tag }}"
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          ports:
+            - containerPort: 5000
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: {{ include "urlshortener.fullname" . }}-config
+          env:
+            - name: GO_SERVICE_URL
+              value: "http://{{ include "urlshortener.fullname" . }}-go:8000"
+            - name: NODEJS_SERVICE_URL
+              value: "http://{{ include "urlshortener.fullname" . }}-nodejs:3000"
+          resources:
+            {{- toYaml .Values.pythonService.resources | nindent 12 }}
+          livenessProbe:
+            httpGet:
+              path: /api/stats
+              port: 5000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /api/stats
+              port: 5000
+            initialDelaySeconds: 5
+            periodSeconds: 5

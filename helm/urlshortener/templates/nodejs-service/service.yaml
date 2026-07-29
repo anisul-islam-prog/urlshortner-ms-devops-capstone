@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "urlshortener.fullname" . }}-nodejs
+  labels:
+    app.kubernetes.io/component: nodejs
+    {{- include "urlshortener.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.nodeService.service.type }}
+  ports:
+    - port: {{ .Values.nodeService.service.port }}
+      targetPort: 3000
+      protocol: TCP
+  selector:
+    app.kubernetes.io/component: nodejs
+    {{- include "urlshortener.selectorLabels" . | nindent 4 }}

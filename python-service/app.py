@@ -14,6 +14,8 @@ logging.basicConfig(level=logging.INFO)
 # Use environment variables for Docker, fallback to localhost for local dev
 GO_SERVICE_URL = os.getenv("GO_SERVICE_URL", "http://localhost:8000")
 NODE_SERVICE_URL = os.getenv("NODE_SERVICE_URL", "http://localhost:3000")
+REDIS_HOST = os.environ.get('REDIS_HOST', 'localhost')
+REDIS_PORT = int(os.environ.get('REDIS_PORT', 6380))
 REDIS_URL = os.getenv("REDIS_URL", "localhost:6380")
 DATABASE = "python.db"
 
@@ -26,13 +28,15 @@ def init_redis():
     global redis_client
     try:
         # Parse host and port
-        host_port = REDIS_URL.split(":")
-        host = host_port[0]
-        port = int(host_port[1]) if len(host_port) > 1 else 6379
+        # host_port = REDIS_URL.split(":")
+        # host = host_port[0]
+        # port = int(host_port[1]) if len(host_port) > 1 else 6379
+        host = REDIS_HOST
+        port = REDIS_PORT
 
         redis_client = redis.Redis(host=host, port=port, decode_responses=True)
         redis_client.ping()
-        logging.info(f"✅ Redis connected successfully at {REDIS_URL}")
+        logging.info(f"✅ Redis connected successfully at {host}:{port}")
 
         # Start Redis subscriber in background thread
         subscriber_thread = threading.Thread(target=redis_subscriber, daemon=True)
@@ -321,8 +325,9 @@ def get_stats():
         }
     )
 
+# Call init_db at module level so Gunicorn runs it on startup
+init_db()
 
 if __name__ == "__main__":
-    init_db()
     init_redis()
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(host="0.0.0.0", port=5000, debug=False)
