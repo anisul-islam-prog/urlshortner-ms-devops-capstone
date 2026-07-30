@@ -37,29 +37,23 @@ jobs:
 
       - name: Build Images into Minikube
         run: |
-          # 1. Point Docker to Minikube
           eval $(minikube -p minikube docker-env)
           
-          # Build with a unique tag
-          TAG=$(git rev-parse --short HEAD)
-
-          # 2. Build images directly into Minikube
-          docker build --no-cache -t urlshortener-go:$TAG -f docker/go.Dockerfile .
-          docker build --no-cache -t urlshortener-python:$TAG -f docker/python.Dockerfile .
-          docker build --no-cache -t urlshortener-nodejs:$TAG -f docker/nodejs.Dockerfile .
+          docker build --no-cache -t urlshortener-go:latest -f docker/go.Dockerfile ./go-service
+          docker build --no-cache -t urlshortener-python:latest -f docker/python.Dockerfile ./python-service
+          docker build --no-cache -t urlshortener-nodejs:latest -f docker/nodejs.Dockerfile ./node-service
 
       - name: Trivy Vulnerability Scan
         run: |
           eval $(minikube -p minikube docker-env)
-          TAG="${{ steps.build.outputs.tag }}"
           
           trivy image --severity HIGH,CRITICAL --exit-code 1 \
-            --format table urlshortener-go:$TAG
+            --format table urlshortener-go:latest
           trivy image --severity HIGH,CRITICAL --exit-code 1 \
-            --format table urlshortener-python:$TAG
+            --format table urlshortener-python:latest
           trivy image --severity HIGH,CRITICAL --exit-code 1 \
-            --format table urlshortener-nodejs:$TAG
-            
+            --format table urlshortener-nodejs:latest
+
       - name: SonarQube Scan
         id: sonarqube_scan
         env:
