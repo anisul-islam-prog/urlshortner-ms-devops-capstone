@@ -37,10 +37,16 @@ jobs:
 
       - name: Build Images into Minikube
         run: |
-          eval $(minikube docker-env)
-          docker build -t urlshortener-go:latest ./go-service
-          docker build -t urlshortener-python:latest ./python-service
-          docker build -t urlshortener-nodejs:latest ./node-service
+          # 1. Point Docker to Minikube
+          eval $(minikube -p minikube docker-env)
+
+          # Build with a unique tag
+          TAG=$(git rev-parse --short HEAD)
+
+          # 2. Build images directly into Minikube
+          docker build --no-cache -t urlshortener-go:$TAG -f docker/go.Dockerfile ./go-service
+          docker build --no-cache -t urlshortener-python:$TAG -f docker/python.Dockerfile ./python-service
+          docker build --no-cache -t urlshortener-nodejs:$TAG -f docker/nodejs.Dockerfile ./node-service
 
       - name: Trivy Vulnerability Scan
         run: |

@@ -3,9 +3,6 @@ go.db
 python.db
 node.db
 
-# GO
-go.sum
-
 # Python
 venv/
 __pycache__/
