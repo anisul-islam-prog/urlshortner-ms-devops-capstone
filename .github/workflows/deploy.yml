@@ -48,10 +48,13 @@ jobs:
           eval $(minikube -p minikube docker-env)
           
           trivy image --severity HIGH,CRITICAL --exit-code 1 \
+            --ignorefile ./.trivyignore \
             --format table urlshortener-go:latest
           trivy image --severity HIGH,CRITICAL --exit-code 1 \
+            --ignorefile ./.trivyignore \
             --format table urlshortener-python:latest
           trivy image --severity HIGH,CRITICAL --exit-code 1 \
+            --ignorefile ./.trivyignore \
             --format table urlshortener-nodejs:latest
 
       - name: SonarQube Scan

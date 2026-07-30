@@ -11,3 +11,4 @@ __pycache__/
 # NodeJS
 node_modules/
 k6-results.json
+*.DS_Store
