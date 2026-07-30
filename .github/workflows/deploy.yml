@@ -39,9 +39,9 @@ jobs:
         run: |
           eval $(minikube -p minikube docker-env)
           
-          docker build --no-cache -t urlshortener-go:latest -f docker/go.Dockerfile ./go-service
-          docker build --no-cache -t urlshortener-python:latest -f docker/python.Dockerfile ./python-service
-          docker build --no-cache -t urlshortener-nodejs:latest -f docker/nodejs.Dockerfile ./node-service
+          docker build --no-cache -t urlshortener-go:latest -f docker/go.Dockerfile .
+          docker build --no-cache -t urlshortener-python:latest -f docker/python.Dockerfile .
+          docker build --no-cache -t urlshortener-nodejs:latest -f docker/nodejs.Dockerfile .
 
       - name: Trivy Vulnerability Scan
         run: |
