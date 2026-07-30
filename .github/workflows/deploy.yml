@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [main, master]
 
+env:
+  ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
+
 jobs:
   build-scan-deploy:
     runs-on: [self-hosted, m2, local]
@@ -16,8 +19,17 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Verify Toolchain
+      - name: Verify & Start Toolchain
         run: |
+          # Ensure Homebrew and local bins are in PATH for macOS ARM64 runners
+          export PATH="$PATH:/opt/homebrew/bin:/usr/local/bin:$HOME/bin"
+          
+          # Start Minikube if not already running (runner may be in a different shell context)
+          if ! minikube status &>/dev/null; then
+            echo "Minikube not running. Starting now..."
+            minikube start --driver=docker --memory=4096 --cpus=2
+          fi
+          
           minikube status
           kubectl cluster-info
           docker --version
@@ -40,6 +52,7 @@ jobs:
             --format table urlshortener-nodejs:latest
 
       - name: SonarQube Scan
+        id: sonarqube_scan
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
@@ -52,8 +65,10 @@ jobs:
             -Dsonar.login=$SONAR_TOKEN \
             -Dsonar.qualitygate.wait=true
 
+      # OPTIONAL: Explicit quality gate check. 
+      # Only runs if the scan step actually executed (not skipped).
       - name: Check SonarQube Quality Gate
-        if: always()
+        if: ${{ !cancelled() && steps.sonarqube_scan.outcome == 'success' }}
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
@@ -69,6 +84,7 @@ jobs:
           fi
 
       - name: Deploy to Minikube via Helm
+        if: ${{ !cancelled() && success() }}
         run: |
           helm upgrade --install urlshortener ./helm/urlshortener \
             --namespace urlshortener \
@@ -77,6 +93,7 @@ jobs:
             --wait --timeout 5m
 
       - name: Verify Deployment
+        if: ${{ !cancelled() && success() }}
         run: |
           echo "=== Pods ==="
           kubectl get pods -n urlshortener
@@ -88,6 +105,7 @@ jobs:
           kubectl get ingress -n urlshortener
 
       - name: Wait for Rollout
+        if: ${{ !cancelled() && success() }}
         run: |
           kubectl rollout status deployment/urlshortener-go -n urlshortener --timeout=120s
           kubectl rollout status deployment/urlshortener-python -n urlshortener --timeout=120s
