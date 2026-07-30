@@ -1,5 +1,5 @@
 # ─── Build Stage ───
-FROM golang:1.24-alpine AS builder
+FROM golang:1.26.5-alpine3.24 AS builder
 WORKDIR /build
 
 # Install CGO toolchain for SQLite
@@ -13,7 +13,7 @@ ENV CGO_ENABLED=1
 RUN go build -tags "libsqlite3" -o urlshortener main.go
 
 # ─── Runtime Stage ───
-FROM alpine:3.19
+FROM alpine:3.24
 WORKDIR /app
 
 # SQLite runtime library + CA certs for outbound HTTPS
