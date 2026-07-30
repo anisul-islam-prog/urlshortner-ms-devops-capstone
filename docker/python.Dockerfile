@@ -1,20 +1,23 @@
 # ─── Build Stage ───
-FROM python:3.12-slim AS builder
+FROM python:3.12.13-alpine AS builder
 WORKDIR /build
 
-RUN apt-get update && apt-get install -y --no-install-recommends gcc && \
-    rm -rf /var/lib/apt/lists/*
+RUN apk upgrade --no-cache && \
+    apk add --no-cache gcc musl-dev linux-headers
 
 COPY python-service/requirements.txt .
 RUN pip install --no-cache-dir --user -r requirements.txt
 RUN pip install --no-cache-dir --user gunicorn
 
 # ─── Runtime Stage ───
-FROM python:3.12-slim
+FROM python:3.12.13-alpine
 WORKDIR /app
 
-# Create user WITH home directory (-m flag)
-RUN groupadd -r appgroup && useradd -m -r -g appgroup appuser
+# Patch OS packages
+RUN apk upgrade --no-cache
+
+# Create non-root user (Alpine syntax)
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
 COPY --from=builder /root/.local /home/appuser/.local
 COPY python-service/ .
